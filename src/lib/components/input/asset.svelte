@@ -4,7 +4,7 @@
 	import TextInput from './text.svelte';
 	import Big from 'big.js';
 
-	interface AssetInputProps extends ComponentProps<TextInput> {
+	interface AssetInputProps extends ComponentProps<typeof TextInput> {
 		min?: number;
 		max?: number;
 		valid?: boolean;
@@ -81,6 +81,8 @@
 			symbol = asset.symbol;
 			if (asset.value) {
 				input = asset.quantity;
+			} else {
+				input = null;
 			}
 		}
 	}
@@ -118,14 +120,30 @@
 	}
 </script>
 
-<TextInput
-	bind:ref
-	bind:value={input}
-	placeholder={zeroValue.quantity}
-	{autofocus}
-	inputmode="numeric"
-	{...props}
-/>
+<div class="relative">
+	<TextInput
+		bind:ref
+		bind:value={input}
+		placeholder={String(zeroValue.value)}
+		{autofocus}
+		inputmode="numeric"
+		{...props}
+	/>
+
+	<span
+		class="
+				pointer-events-none
+				absolute
+				inset-y-0
+				right-0
+				flex
+				items-center
+				pr-4
+				text-gray-500"
+	>
+		{String(symbol.code)}
+	</span>
+</div>
 
 {#if debug}
 	<h3>Component State</h3>

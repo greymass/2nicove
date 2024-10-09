@@ -13,16 +13,20 @@
 	import Stack from '$lib/components/layout/stack.svelte';
 	import Transaction from '$lib/components/transaction.svelte';
 	import AssetInput from '$lib/components/input/asset.svelte';
+	import BytesInput from '$lib/components/input/bytes.svelte';
+	import Card from '$lib/components/layout/box/card.svelte';
 
-	import { SellRAMState } from '../state.svelte.js';
+	import { SellRAMState } from './state.svelte.js';
 	import { preventDefault } from '$lib/utils.js';
+
+	let bytesInput: BytesInput | undefined = $state();
+	let assetInput: AssetInput | undefined = $state();
 
 	const context = getContext<UnicoveContext>('state');
 	const { data } = $props();
-	const debugMode = getSetting('debug-mode', false);
+	const debugMode = getSetting('debug-mode', true);
 
 	const sellRamState: SellRAMState = $state(new SellRAMState(data.network.chain));
-	let assetInput: AssetInput | undefined = $state();
 
 	let transactionId: Checksum256 | undefined = $state();
 
@@ -47,7 +51,8 @@
 
 	function resetState() {
 		sellRamState.reset();
-		assetInput?.set(null);
+		bytesInput?.reset();
+		assetInput?.reset();
 	}
 
 	$effect(() => {
@@ -64,6 +69,17 @@
 			sellRamState.pricePerKB = data.network.ramprice.eos;
 		}
 	});
+
+	function setAssetAmount() {
+		sellRamState.format = 'asset';
+		sellRamState.bytes = sellRamState.bytesToSell;
+	}
+
+	function setBytesAmount() {
+		sellRamState.format = 'bytes';
+		sellRamState.tokens = sellRamState.bytesValue;
+		assetInput?.set(sellRamState.bytesValue);
+	}
 </script>
 
 {#if transactionId}
@@ -72,49 +88,53 @@
 
 <form onsubmit={preventDefault(handleSellRAM)}>
 	<Stack class="gap-3">
-		<Label for="assetInput">Amount to sell</Label>
-		<AssetInput
-			id="assetInput"
-			bind:this={assetInput}
-			bind:value={sellRamState.tokens}
-			placeholder="0.0000 EOS"
-			autofocus
-		/>
+		<Label for="bytesInput">Amount to sell</Label>
+		<div class="flex gap-4">
+			<div class="flex-1">
+				<AssetInput
+					bind:value={sellRamState.tokens}
+					bind:this={assetInput}
+					oninput={setAssetAmount}
+					autofocus
+				/>
+			</div>
+			<div class="flex-1">
+				<BytesInput
+					bind:value={sellRamState.bytes}
+					bind:this={bytesInput}
+					oninput={setBytesAmount}
+				/>
+			</div>
+		</div>
 		{#if sellRamState.insufficientRAM}
 			<p class="text-red-500">Insufficient RAM available. Please enter a smaller amount.</p>
 		{/if}
 		<p>
-			Available RAM:
+			RAM available:
 			{#if context.account}
-				{sellRamState.max} Bytes
+				{sellRamState.maxInKBs}
 			{:else}
-				0 Bytes
-			{/if}
-		</p>
-		<p>
-			Value of available RAM:
-			{#if context.account}
-				{sellRamState.maxValue}
-			{:else}
-				0 Bytes
+				0 KB
 			{/if}
 		</p>
 	</Stack>
 
 	<Stack class="mt-4 gap-3">
-		<h3 class="h3">Details</h3>
-		<div class="grid grid-cols-2 gap-2">
-			<span>Price for 1000 bytes:</span>
-			<span>{sellRamState.pricePerKB} / KB</span>
-			<span>RAM to be sold:</span>
-			<span>{sellRamState.bytesToSell} Bytes</span>
-			<span>RAM Value:</span>
-			<span>{sellRamState.tokens}</span>
-			<span>Network Fee (0.5%)</span>
-			<span>{sellRamState.fee}</span>
-			<span>Expected To Receive:</span>
-			<span>~ {sellRamState.expectedToReceive}</span>
-		</div>
+		<Card>
+			<h3 class="h3">Details</h3>
+			<div class="grid grid-cols-2 gap-2">
+				<span>RAM Price:</span>
+				<span>{sellRamState.pricePerKB} / KB</span>
+				<span>RAM to be sold:</span>
+				<span>{sellRamState.kbsToSell}</span>
+				<span>RAM Value:</span>
+				<span>{sellRamState.bytesValue}</span>
+				<span>Network Fee (0.5%)</span>
+				<span>{sellRamState.fee}</span>
+				<span>Expected To Receive:</span>
+				<span>~ {sellRamState.expectedToReceive}</span>
+			</div>
+		</Card>
 
 		{#if sellRamState.valid}
 			<SummarySellRAM action={{ data: sellRamState.toJSON() }} />
@@ -129,12 +149,11 @@
 			>{JSON.stringify(
 				{
 					account: sellRamState.account,
-					tokens: sellRamState.tokens,
+					bytes: sellRamState.bytes,
 					max: sellRamState.max,
 					chain: sellRamState.chain,
 					pricePerKB: sellRamState.pricePerKB,
-					pricePerByte: sellRamState.pricePerByte,
-					estimatedBytesToSell: sellRamState.bytes,
+					bytesValue: sellRamState.bytesValue,
 					insufficientRAM: sellRamState.insufficientRAM,
 					valid: sellRamState.valid,
 					balances: context.account?.balances
